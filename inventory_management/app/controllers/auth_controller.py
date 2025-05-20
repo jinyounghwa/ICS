@@ -58,9 +58,66 @@ class AuthController:
                 print("❌ 비밀번호 불일치")
                 return False, "사용자명 또는 비밀번호가 일치하지 않습니다."
             
+            # JWT 토큰 생성
+            from datetime import datetime, timedelta
+            import jwt
+            from app.config import SECRET_KEY, ALGORITHM, save_auth_token
+            
+            print(f"\n=== 토큰 생성 시작 ===")
+            print(f"사용자: {user.username}")
+            print(f"회사 ID: {user.company_id}")
+            
+            # 토큰 만료 시간 설정 (예: 24시간)
+            access_token_expires = timedelta(hours=24)
+            expire = datetime.utcnow() + access_token_expires
+            
+            # 페이로드 생성
+            to_encode = {
+                "sub": user.username,
+                "exp": expire,
+                "company_id": user.company_id  # 회사 ID도 토큰에 포함
+            }
+            
+            print(f"시크릿 키: {SECRET_KEY}")
+            print(f"알고리즘: {ALGORITHM}")
+            print(f"페이로드: {to_encode}")
+            
+            try:
+                # JWT 토큰 생성
+                access_token = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+                print(f"생성된 토큰 타입: {type(access_token)}")
+                print(f"생성된 토큰: {access_token}")
+                
+                # 토큰 저장 (문자열로 변환하여 저장)
+                if isinstance(access_token, bytes):
+                    token_str = access_token.decode('utf-8')
+                    print(f"바이트를 문자열로 디코딩: {token_str}")
+                else:
+                    token_str = access_token
+                
+                print(f"저장할 토큰 문자열: {token_str}")
+                
+                # 토큰 저장 시도
+                token_saved = save_auth_token(token_str)
+                
+                # 저장 후 토큰 확인
+                from PySide6.QtCore import QSettings
+                settings = QSettings()
+                saved_token = settings.value('auth/token', '')
+                print(f"저장 후 확인된 토큰: {saved_token}")
+                
+                if not token_saved:
+                    print("❌ 토큰 저장에 실패했습니다.")
+                    return False, "토큰 저장에 실패했습니다. 관리자에게 문의해주세요."
+                
+            except Exception as e:
+                print(f"❌ 토큰 생성/저장 중 오류 발생: {str(e)}")
+                import traceback
+                traceback.print_exc()
+                raise
+            
             # 로그인 성공
             self.current_user = user
-            # 세션은 여기서 닫지 않고, 컨트롤러가 종료될 때 닫음
             return True, "로그인 성공"
             
         except SQLAlchemyError as e:

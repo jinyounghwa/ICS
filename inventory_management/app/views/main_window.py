@@ -4,13 +4,16 @@ from PySide6.QtWidgets import (
     QMessageBox, QTableWidget, QTableWidgetItem, QHeaderView,
     QAbstractItemView, QDialog, QFormLayout, QLineEdit,
     QComboBox, QSpinBox, QDoubleSpinBox, QCheckBox,
-    QDateEdit, QTextEdit, QFileDialog
+    QDateEdit, QTextEdit, QFileDialog, QDialogButtonBox
 )
 from PySide6.QtCore import Qt, QDate
 from PySide6.QtGui import QAction, QIcon, QPixmap
 
 from ..controllers.product_controller import ProductController
 from .product_dialog import ProductDialog
+from .user_management_dialog import UserManagementDialog
+from .company_management_dialog import CompanyManagementDialog
+from ..models.user import User as UserModel
 
 class ProductTableWidget(QWidget):
     def __init__(self, db_session, company_id, parent=None):
@@ -415,8 +418,46 @@ class MainWindow(QMainWindow):
     
     def setup_user_tab(self):
         layout = QVBoxLayout()
-        layout.addWidget(QLabel('사용자 관리 탭 (관리자 전용)'))
+        
+        # 사용자 관리 버튼
+        btn_manage_users = QPushButton('사용자 관리')
+        btn_manage_users.clicked.connect(self.manage_users)
+        layout.addWidget(btn_manage_users)
+        
+        # 회사 관리 버튼 (슈퍼 관리자인 경우에만 활성화)
+        btn_manage_companies = QPushButton('회사 관리')
+        btn_manage_companies.clicked.connect(self.manage_companies)
+        layout.addWidget(btn_manage_companies)
+        
+        # 슈퍼 관리자가 아닌 경우 버튼 비활성화
+        if self.current_user.role != 'super_admin':
+            btn_manage_companies.setEnabled(False)
+            btn_manage_companies.setToolTip('슈퍼 관리자만 회사를 관리할 수 있습니다.')
+        
+        layout.addStretch()
+        
         self.user_tab.setLayout(layout)
+    
+    def manage_users(self):
+        """사용자 관리 다이얼로그 열기"""
+        dialog = UserManagementDialog(
+            parent=self,
+            is_super_admin=self.current_user.role == 'super_admin',
+            current_user_id=self.current_user.id
+        )
+        dialog.exec()
+    
+    def manage_companies(self):
+        """회사 관리 다이얼로그 열기"""
+        if self.current_user.role != 'super_admin':
+            QMessageBox.warning(self, '권한 없음', '슈퍼 관리자만 회사를 관리할 수 있습니다.')
+            return
+            
+        dialog = CompanyManagementDialog(
+            parent=self,
+            is_super_admin=self.current_user.role == 'super_admin'
+        )
+        dialog.exec()
     
     def handle_logout(self):
         reply = QMessageBox.question(
